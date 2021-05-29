@@ -1,0 +1,714 @@
+---
+title: "Batch correction"
+author: "Katerina Danko"
+output:
+    html_document:
+      code_folding: show
+      theme: united
+      toc: true
+      toc_depth: 3
+      toc_float: true
+      number_section: true
+---
+
+```{css, echo=FALSE}
+.header-section-number::after {
+  content: ".";
+}
+```
+
+List of used packages:
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```
+
+```{r include=FALSE}
+# "data.Rdata" may be found in "Rdata" directory 
+load("data.Rdata")
+```
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+# Missing packages must be installed for proper compilation 
+if (!require(limma)) BiocManager::install("limma")
+if (!require(dplyr)) install.packages("dplyr")
+if (!require(ggplot2)) install.packages("ggplot2")
+if (!require(bapred)) install.packages("bapred")
+if (!require(Harman)) BiocManager::install("Harman")
+if (!require(sva)) BiocManager::install("sva")
+if (!require(devtools)) install.packages("devtools")
+if (!require(ggbiplot)) devtools::install_github("vqv/ggbiplot")
+if (!require(heatmaply)) BiocManager::install("heatmaply")
+if (!require(ggVennDiagram)) devtools::install_github("gaospecial/ggVennDiagram")
+if (!require(EnhancedVolcano)) BiocManager::install("EnhancedVolcano")
+if (!require(mixOmics)) BiocManager::install("mixOmics")
+```
+
+```{r echo = T, warning=FALSE, message=FALSE, eval=TRUE}
+library(limma)
+library(bapred)
+library(Harman)
+library(ggplot2)
+library(sva)
+library(ggbiplot)
+library(heatmaply)
+library(EnhancedVolcano)
+library(ggVennDiagram)
+library(mixOmics)
+library(dplyr)
+```
+
+```{r echo = FALSE, warning=FALSE, message=FALSE, eval=TRUE}
+theme_set(theme_bw())
+```
+
+# BMC
+Limma package provides *BMC (batch mean centering)* method for batch correction.
+BMC method includes centering the variables within batches to have zero mean. 
+
+## Batch correction
+```{r warning=FALSE, message=FALSE}
+data_limma <- data_norm_quantile_max
+batch <- as.numeric(data_factors$Series)
+
+ex <- cbind(data_limma, batch)
+
+data_limma_corrected <- removeBatchEffect(data_limma, batch)
+```
+
+## PCA
+```{r warning=FALSE, message=FALSE}
+# Year 1 and 2
+pca_limma <- prcomp(t(data_limma_corrected), center = T, scale. = F)
+
+ggbiplot(pca_limma, ellipse = TRUE, groups = data_factors$Series, labels = NULL, var.axes = FALSE, alpha = 0.7) +
+  labs(title = "After correction (BMC)", color = "Year") +
+  scale_color_manual(values = c("#0a9278","#f57002")) +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5))
+
+ggbiplot(pca_limma, ellipse = TRUE, groups = data_factors$Differentiation, labels = NULL, var.axes = FALSE, alpha = 0.7) +
+  geom_point(aes(col = data_factors$Differentiation, shape = data_factors$Series), size = 2) +
+  labs(title = "After correction (BMC)", color = "Group", shape = "Year") +
+  scale_color_manual(values = c("#0a9278","#f57002")) +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5))
+```
+
+## Differential expression
+```{r warning=FALSE, message=FALSE}
+X_year <- model.matrix(~ Series, data = data_factors)
+
+fit_y <- lmFit(data_limma_corrected, design = X_year, method = "robust", maxit = 1000)
+
+efit_y <- eBayes(fit_y)
+
+topTable(efit_y, coef = 2)
+
+num_spots <- nrow(data_norm_quantile_max)
+full_list_y <- topTable(efit_y, coef = 2, number = num_spots,
+                        sort.by = "none")
+```
+
+Draw heatmap:
+```{r warning=FALSE, message=FALSE}
+p_above_y <- full_list_y$adj.P.Val <= 0.05
+dif_data_limma <- data_norm_quantile_max[p_above_y, ]
+
+heatmaply(dif_data_limma, main = "Year 1 and 2", fontsize_row = 1, k_col = NA, dendrogram = "col", scale_fill_gradient_fun = ggplot2::scale_fill_gradient2(low = "lightseagreen", high = "orangered3", midpoint = 15))
+```
+
+Draw Volcano plot: 
+```{r warning=FALSE, message=FALSE}
+EnhancedVolcano(full_list_y,
+                lab = rownames(full_list_y),
+                title = "After correction (BMC)",
+                subtitle = NULL,
+                x = 'logFC',
+                y = 'adj.P.Val',
+                pCutoff = 0.05,
+                FCcutoff = 0.1,
+                col = c("lightcyan4","#f57002", "#ee9f02", "#0a9278"),
+                legend = c("Not significant","Log2FC","Padj","Padj & Log2FC"),
+                legendPosition = "right")
+```
+
+# Ratio A
+*Ratio A* method of batch correction is ratio-based method scaling the expression values by the arithmetic mean. "bapred" package provides possibility to correct batch effect by Ratio A method. 
+
+## Batch correction:
+```{r warning=FALSE, message=FALSE}
+batch <- data_factors$Series
+ratio_A_data <- ratioa(t(data_norm_quantile_max), batch)
+ratio_A_corrected <- ratio_A_data$xadj
+```
+## PCA
+```{r warning=FALSE, message=FALSE}
+pca_ratio_A <- prcomp(ratio_A_corrected, center = T, scale. = F)
+
+ggbiplot(pca_ratio_A, ellipse = TRUE, groups = data_factors$Series, labels = NULL, var.axes = FALSE, alpha = 0.7) +
+  scale_color_manual(values = c("#0a9278","#f57002")) +
+  labs(title = "After correction (Ratio A)", color = "Year") +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5))
+
+ggbiplot(pca_ratio_A, ellipse = TRUE, groups = data_factors$Differentiation, labels = NULL, var.axes = FALSE, alpha = 0.7) +
+  geom_point(aes(col = data_factors$Differentiation, shape = data_factors$Series), size = 2) +
+  scale_color_manual(values = c("#0a9278","#f57002")) +
+  labs(title = "After correction (Ratio A)", color = "Group", shape = "Year") +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5))
+```
+
+## Differential expression
+```{r warning=FALSE, message=FALSE}
+X_year <- model.matrix(~ Series, data = data_factors)
+
+fit_y <- lmFit(t(ratio_A_corrected), design = X_year, method = "robust", maxit = 1000)
+
+efit_y <- eBayes(fit_y)
+
+topTable(efit_y, coef = 2)
+
+num_spots <- nrow(data_norm_quantile_max)
+full_list_y <- topTable(efit_y, coef = 2, number = num_spots,
+                        sort.by = "none")
+```
+
+Draw heatmap:
+```{r warning=FALSE, message=FALSE}
+p_above_y <- full_list_y$adj.P.Val <= 0.05
+dif_data_ratio_A_year <- data_norm_quantile_max[p_above_y, ]
+
+heatmaply(dif_data_ratio_A_year, main = "Year 1 and 2", fontsize_row = 1, k_col = NA, dendrogram = "col", scale_fill_gradient_fun = ggplot2::scale_fill_gradient2(low = "lightseagreen", high = "orangered3", midpoint = 15))
+```
+
+Draw Volcano plot:
+```{r warning=FALSE, message=FALSE}
+EnhancedVolcano(full_list_y,
+                lab = rownames(full_list_y),
+                title = "After correction (Ratio A)",
+                subtitle = NULL,
+                x = 'logFC',
+                y = 'adj.P.Val',
+                pCutoff = 0.05,
+                FCcutoff = 0.1,
+                col = c("lightcyan4","#f57002", "#ee9f02", "#0a9278"),
+                legend = c("Not significant","Log2FC","Padj","Padj & Log2FC"),
+                legendPosition = "right")
+```
+
+# Ratio G
+*Ratio G* method of batch correction is ratio-based method scaling the expression values by the geometric mean. Batch effect may be corrected by Ratio G method using "bapred" package. 
+## Batch correction
+```{r warning=FALSE, message=FALSE}
+ratio_G_data <- ratiog(t(data_norm_quantile_max), batch)
+ratio_G_corrected <- ratio_G_data$xadj
+```
+
+## PCA
+```{r warning=FALSE, message=FALSE}
+pca_ratio_G <- prcomp(ratio_G_corrected, center = T, scale. = F)
+
+ggbiplot(pca_ratio_G, ellipse = TRUE, groups = data_factors$Series, labels = NULL, var.axes = FALSE, alpha = 0.7) +
+  scale_color_manual(values = c("#0a9278","#f57002")) +
+  labs(title = "After correction (Ratio G)", color = "Year") +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5))
+
+ggbiplot(pca_ratio_G, ellipse = TRUE, groups = data_factors$Differentiation, labels = NULL, var.axes = FALSE, alpha = 0.7) +
+  geom_point(aes(col = data_factors$Differentiation, shape = data_factors$Series), size = 2) +
+  scale_color_manual(values = c("#0a9278","#f57002")) +
+  labs(title = "After correction (Ratio G)", color = "Group", shape = "Year") +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5))
+```
+
+## Differential expression
+```{r warning=FALSE, message=FALSE}
+X_year <- model.matrix(~ Series, data = data_factors)
+
+fit_y <- lmFit(t(ratio_G_corrected), design = X_year, method = "robust", maxit = 1000)
+
+efit_y <- eBayes(fit_y)
+
+topTable(efit_y, coef = 2)
+
+num_spots <- nrow(data_norm_quantile_max)
+full_list_y <- topTable(efit_y, coef = 2, number = num_spots,
+                        sort.by = "none")
+```
+
+Draw heatmap:
+```{r warning=FALSE, message=FALSE}
+p_above_y <- full_list_y$adj.P.Val <= 0.05
+dif_data_ratio_G_year <- data_norm_quantile_max[p_above_y, ]
+
+heatmaply(dif_data_ratio_G_year, main = "Year 1 and 2", fontsize_row = 1, k_col = NA, dendrogram = "col", scale_fill_gradient_fun = ggplot2::scale_fill_gradient2(low = "lightseagreen", high = "orangered3", midpoint = 15))
+
+```
+
+Draw Volcano plot:
+```{r warning=FALSE, message=FALSE}
+EnhancedVolcano(full_list_y,
+                lab = rownames(full_list_y),
+                title = "After correction (Ratio G)",
+                subtitle = NULL,
+                x = 'logFC',
+                y = 'adj.P.Val',
+                pCutoff = 0.05,
+                FCcutoff = 0.1,
+                col = c("lightcyan4","#f57002", "#ee9f02", "#0a9278"),
+                legend = c("Not significant","Log2FC","Padj","Padj & Log2FC"),
+                legendPosition = "right")
+```
+
+
+# Harman 
+*Harman* method is based on PCA. It reduces batch effect and keeps user-defined class effects. Harman batch correction is provided by eponymous package "Harman".
+
+## Batch correction
+```{r warning=FALSE, message=FALSE}
+expt <- data_factors$Differentiation
+batch <- data_factors$Series
+data.harman <- harman(data_norm_quantile_max, expt, batch)
+data_corrected_harman <- reconstructData(data.harman)
+```
+
+## PCA
+```{r warning=FALSE, message=FALSE}
+pca_harman <- prcomp(t(data_corrected_harman), center = T, scale. = F)
+
+ggbiplot(pca_harman, ellipse = TRUE, groups = data_factors$Series, labels = NULL, var.axes = FALSE, alpha = 0.7) +
+  scale_color_manual(values = c("#0a9278","#f57002")) +
+  labs(title = "After correction (Harman)", color = "Year") +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5))
+
+ggbiplot(pca_harman, ellipse = TRUE, groups = data_factors$Differentiation, labels = NULL, var.axes = FALSE, alpha = 0.7) +
+  geom_point(aes(col = data_factors$Differentiation, shape = data_factors$Series), size = 2) +
+  scale_color_manual(values = c("#0a9278","#f57002")) +
+  labs(title = "After correction (Harman)", color = "Group", shape = "Year") +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5))
+```
+
+## Differential expression
+```{r warning=FALSE, message=FALSE}
+X_year <- model.matrix(~ Series, data = data_factors)
+
+fit_y <- lmFit(data_corrected_harman, design = X_year, method = "robust", maxit = 1000)
+
+efit_y <- eBayes(fit_y)
+
+topTable(efit_y, coef = 2)
+
+num_spots <- nrow(data_norm_quantile_max)
+full_list_y <- topTable(efit_y, coef = 2, number = num_spots,
+                        sort.by = "none")
+```
+
+Draw heatmap:
+```{r warning=FALSE, message=FALSE}
+p_above_y <- full_list_y$adj.P.Val <= 0.05
+dif_data_harman_year <- data_norm_quantile_max[p_above_y, ]
+
+heatmaply(dif_data_harman_year, main = "Year 1 and 2", fontsize_row = 1, k_col = NA, dendrogram = "col", scale_fill_gradient_fun = ggplot2::scale_fill_gradient2(low = "lightseagreen", high = "orangered3", midpoint = 15))
+```
+
+Draw Volcano plot:
+```{r warning=FALSE, message=FALSE}
+EnhancedVolcano(full_list_y,
+                lab = rownames(full_list_y),
+                title = "After correction (Harman)",
+                subtitle = NULL,
+                x = 'logFC',
+                y = 'adj.P.Val',
+                pCutoff = 0.05,
+                FCcutoff = 0.1,
+                col = c("lightcyan4","#f57002", "#ee9f02", "#0a9278"),
+                legend = c("Not significant","Log2FC","Padj","Padj & Log2FC"),
+                legendPosition = "right")
+```
+
+# Combat
+## Batch correction
+```{r warning=FALSE, message=FALSE}
+pheno <- data_factors
+edata <- data_norm_quantile_max
+colnames(pheno)[5] <- "batch"
+
+mod <- model.matrix(~ Differentiation + Health, data = pheno)
+mod0 <- model.matrix(~ 1, data = pheno)
+
+n.sv <- num.sv(edata, mod, method = "leek")
+n.sv
+
+svobj <- sva(edata, mod, mod0, n.sv = n.sv)
+
+modSv <- cbind(mod, svobj$sv)
+mod0Sv <- cbind(mod0, svobj$sv)
+pValuesSv <- f.pvalue(edata, modSv, mod0Sv)
+qValuesSv <- p.adjust(pValuesSv,method = "BH")
+
+fit <- lmFit(edata,modSv)
+
+contrast.matrix <- cbind("C1"= c(-1, 1, 0, rep(0,svobj$n.sv)),"C2"= c(0, -1, 1, rep(0,svobj$n.sv)))
+fitContrasts <- contrasts.fit(fit,contrast.matrix)
+
+eb <- eBayes(fitContrasts)
+
+batch <- pheno$batch
+
+modcombat <- model.matrix(~ 1, data = pheno)
+combat_edata <- ComBat(dat = edata, batch = batch, mod = modcombat, par.prior = TRUE, prior.plots = TRUE)
+```
+
+## PCA
+```{r warning=FALSE, message=FALSE}
+pca_sva_combat <- prcomp(t(combat_edata), center = T, scale. = F)
+
+ggbiplot(pca_sva_combat, ellipse = TRUE, groups = data_factors$Series, labels = NULL, var.axes = FALSE, alpha = 0.7) +
+  scale_color_manual(values = c("#0a9278","#f57002")) +
+  labs(title = "After correction (ComBat)", color = "Year") +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5))
+
+ggbiplot(pca_sva_combat, ellipse = TRUE, groups = data_factors$Differentiation, labels = NULL, var.axes = FALSE, alpha = 0.7) +
+  geom_point(aes(col = data_factors$Differentiation, shape = data_factors$Series), size = 2) +
+  scale_color_manual(values = c("#0a9278","#f57002")) +
+  labs(title = "After correction (ComBat)", color = "Group", shape = "Year") +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5))
+```
+
+## Differential expression
+```{r warning=FALSE, message=FALSE}
+X <- model.matrix(~ Series, data = data_factors)
+
+fit <- lmFit(combat_edata, design = X, method = "robust", maxit = 1000)
+
+efit <- eBayes(fit)
+
+topTable(efit, coef = 2)
+
+num_spots <- nrow(combat_edata)
+full_list <- topTable(efit, coef = 2, number = num_spots,
+                      sort.by = "none")
+```
+
+Draw heatmap:
+```{r warning=FALSE, message=FALSE}
+p_above <- full_list$adj.P.Val <= 0.05
+dif_data_combat <- combat_edata[p_above, ]
+
+heatmaply(dif_data_combat, main = "Control vs Healthy", fontsize_row = 1, k_col = 3, dendrogram = "col", scale_fill_gradient_fun = ggplot2::scale_fill_gradient2(low = "lightseagreen", high = "orangered3", midpoint = 15))
+```
+
+Draw Volcano plot:
+```{r warning=FALSE, message=FALSE}
+EnhancedVolcano(full_list,
+                lab = rownames(full_list),
+                title = "After correction (ComBat)",
+                subtitle = NULL,
+                x = 'logFC',
+                y = 'adj.P.Val',
+                pCutoff = 0.05,
+                FCcutoff = 0.1,
+                col = c("lightcyan4","#f57002", "#ee9f02", "#0a9278"),
+                legend = c("Not significant","Log2FC","Padj","Padj & Log2FC"),
+                legendPosition = "right")
+```
+
+# Comparison of batch correction methods
+Firstly, we compared the number of remaining proteins whose expression differ depending on year of experiment. Ideally, there must be no such proteins.
+```{r warning=FALSE, message=FALSE}
+x <- list(rownames(dif_data_limma), rownames(combat_edata), rownames(dif_data_ratio_A_year), rownames(dif_data_ratio_G_year), rownames(dif_data_harman_year))
+
+ggVennDiagram(x,category.names = c("BMC","Combat", "Ratio A", "Ratio G", "Harman"), label_alpha = 0) +
+  scale_fill_gradient(low = "palegreen3", high = "#0a9278") +
+  labs(title = "Differentially expressed proteins after \n batch correction \n (condition = 'Year')") +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5))
+```
+
+It could be seen that ComBat method considerably reduced the number of such proteins (only 2 proteins remained). Interestingly, Ratio G method decreased the number of undesirable proteins, but most of them (59) were unique.
+
+# PLS-DA 
+Secondly, we compared PLS-DA results. PLS-DA (Partial least squares-discriminant analysis) is a linear classification model that is able to predict the class of samples. Here we used PLS-DA in order to compare prediction of classes:
+
+* Control cells obtained in 1 year
+* Control cells obtained in 2 year
+* Differentiated cells obtained in 1 year 
+* Differentiated cells obtained in 2 year
+
+Classes of one year should be predicted with similar probability
+
+## Data without correction
+```{r warning=FALSE, message=FALSE}
+data_factors$Series_Differentiation <- factor(apply(data_factors[, c(5, 4)], 1, paste, collapse = "_"))
+
+X <- t(data_norm_quantile_max)
+Y <- data_factors$Series_Differentiation 
+summary(Y)
+
+list.keepX <- c(5:10,  seq(20, 100, 10))
+set.seed(30) 
+tune.splsda.srbct <- tune.splsda(X, Y, ncomp = 3,
+                                 validation = 'Mfold',
+                                 folds = 3, dist = 'max.dist', progressBar = FALSE,
+                                 measure = "BER", test.keepX = list.keepX,
+                                 nrepeat = 10)   
+
+ncomp <- tune.splsda.srbct$choice.ncomp$ncomp 
+ncomp
+
+select.keepX <- tune.splsda.srbct$choice.keepX[1:ncomp] 
+select.keepX
+
+
+MyResult.splsda.fixed <- splsda(X, Y,ncomp = ncomp, keepX = select.keepX)
+
+layout(matrix(c(1, 2, 3, 3, 3, 3), 2, 3))
+plotLoadings(MyResult.splsda.fixed, comp = 1, size.name = 1, size.title = 1.2, title = "Loadings\n on 1st component", contrib = "max", legend = FALSE, col.ties="black", ndisplay = 10)
+plotLoadings(MyResult.splsda.fixed, comp = 2, size.name = 1, size.title = 1.2, title = "Loadings\n on 2nd component", contrib = "max",ndisplay = 10,  legend = FALSE, col.ties="black")
+plotIndiv(MyResult.splsda.fixed, ind.names = F, ellipse = T, style = "graphics", abline = TRUE, cex = 2, pch = 19, size.axis = 1.2, size.xlabel = 1.5, size.ylabel = 1.5, title = "sPLS-DA ordination of samples (No correction)", size.title = 1.5)
+legend("bottomright", legend = levels(data_factors$Series_Differentiation), cex = 1, fill = color.mixo(1:4), bty = "n")
+```
+
+```{r}
+auc.plsda <- auroc(MyResult.splsda.fixed)
+```
+
+## BMC
+```{r include=FALSE}
+dev.off()
+```
+```{r}
+data_factors$Series_Differentiation <- factor(apply(data_factors[, c(5, 4)], 1, paste, collapse = "_"))
+
+X <- t(data_limma_corrected)
+Y <- data_factors$Series_Differentiation
+summary(Y)
+
+
+list.keepX <- c(5:10,  seq(20, 100, 10))
+set.seed(30) 
+tune.splsda.srbct <- tune.splsda(X, Y, ncomp = 3,
+                                 validation = 'Mfold',
+                                 folds = 3, dist = 'max.dist', progressBar = FALSE,
+                                 measure = "BER", test.keepX = list.keepX,
+                                 nrepeat = 10)   
+
+ncomp <- tune.splsda.srbct$choice.ncomp$ncomp 
+ncomp
+
+select.keepX <- tune.splsda.srbct$choice.keepX[1:ncomp] 
+select.keepX
+
+
+MyResult.splsda.fixed <- splsda(X, Y,ncomp = ncomp, keepX = select.keepX)
+
+layout(matrix(c(1, 2, 3, 3, 3, 3), 2, 3))
+plotLoadings(MyResult.splsda.fixed, comp = 1, size.name = 1, size.title = 1.2, title = "Loadings\n on 1st component", contrib = "max", legend = FALSE, col.ties="black", ndisplay = 10)
+plotLoadings(MyResult.splsda.fixed, comp = 2, size.name = 1, size.title = 1.2, title = "Loadings\n on 2nd component", contrib = "max",ndisplay = 10,  legend = FALSE, col.ties="black")
+plotIndiv(MyResult.splsda.fixed, ind.names = F, ellipse = T, style = "graphics", abline = TRUE, cex = 2, pch = 19, size.axis = 1.2, size.xlabel = 1.5, size.ylabel = 1.5, title = "sPLS-DA ordination of samples (BMC)", size.title = 1.5)
+legend(x = "topleft", legend = levels(data_factors$Series_Differentiation), cex = 1, fill = color.mixo(1:4), bty = "n")
+```
+
+```{r}
+auc.plsda <- auroc(MyResult.splsda.fixed)
+```
+
+## Ratio A
+```{r include=FALSE}
+dev.off()
+```
+
+```{r}
+data_factors$Series_Differentiation <- factor(apply(data_factors[, c(5, 4)], 1, paste, collapse = "_"))
+
+X <- ratio_A_corrected
+Y <- data_factors$Series_Differentiation
+summary(Y)
+
+
+list.keepX <- c(5:10,  seq(20, 100, 10))
+set.seed(30) 
+tune.splsda.srbct <- tune.splsda(X, Y, ncomp = 3,
+                                 validation = 'Mfold',
+                                 folds = 3, dist = 'max.dist', 
+                                 progressBar = FALSE,
+                                 measure = "BER",
+                                 test.keepX = list.keepX,
+                                 nrepeat = 10)   
+
+ncomp <- tune.splsda.srbct$choice.ncomp$ncomp 
+ncomp
+
+select.keepX <- tune.splsda.srbct$choice.keepX[1:ncomp] 
+select.keepX
+
+
+MyResult.splsda.fixed <- splsda(X, Y,ncomp = ncomp, keepX = select.keepX)
+
+layout(matrix(c(1, 2, 3, 3, 3, 3), 2, 3))
+plotLoadings(MyResult.splsda.fixed, comp = 1, size.name = 1, size.title = 1.2, title = "Loadings\n on 1st component", contrib = "max", legend = FALSE, col.ties="black", ndisplay = 10)
+plotLoadings(MyResult.splsda.fixed, comp = 2, size.name = 1, size.title = 1.2, title = "Loadings\n on 2nd component", contrib = "max",ndisplay = 10,  legend = FALSE, col.ties="black")
+plotIndiv(MyResult.splsda.fixed, ind.names = F, ellipse = T, style = "graphics", abline = TRUE, cex = 2, pch = 19, size.axis = 1.2, size.xlabel = 1.5, size.ylabel = 1.5, title = "sPLS-DA ordination of samples (Ratio A)", size.title = 1.5)
+legend(x = "topleft", legend = levels(data_factors$Series_Differentiation), cex = 1, fill = color.mixo(1:4), bty = "n")
+```
+```{r}
+auc.plsda <- auroc(MyResult.splsda.fixed)
+```
+
+## Ratio G
+```{r include=FALSE}
+dev.off()
+```
+```{r}
+data_factors$Series_Differentiation <- factor(apply(data_factors[, c(5, 4)], 1, paste, collapse = "_"))
+
+X <- ratio_G_corrected
+Y <- data_factors$Series_Differentiation
+
+list.keepX <- c(5:10,  seq(20, 100, 10))
+set.seed(30) 
+tune.splsda.srbct <- tune.splsda(X, Y, ncomp = 3,
+                                 validation = 'Mfold',
+                                 folds = 3, dist = 'max.dist', 
+                                 progressBar = FALSE,
+                                 measure = "BER",
+                                 test.keepX = list.keepX,
+                                 nrepeat = 10)   
+
+ncomp <- tune.splsda.srbct$choice.ncomp$ncomp 
+ncomp
+
+select.keepX <- tune.splsda.srbct$choice.keepX[1:ncomp] 
+select.keepX
+```
+
+```{r}
+MyResult.splsda.fixed <- splsda(X, Y,ncomp = ncomp, keepX = select.keepX)
+
+layout(matrix(c(1, 2, 3, 3, 3, 3), 2, 3))
+plotLoadings(MyResult.splsda.fixed, comp = 1, size.name = 1, size.title = 1.2, title = "Loadings\n on 1st component", contrib = "max", legend = FALSE, col.ties="black", ndisplay = 10)
+plotLoadings(MyResult.splsda.fixed, comp = 2, size.name = 1, size.title = 1.2, title = "Loadings\n on 2nd component", contrib = "max",ndisplay = 10,  legend = FALSE, col.ties="black")
+plotIndiv(MyResult.splsda.fixed, ind.names = F, ellipse = T, style = "graphics", abline = TRUE, cex = 2, pch = 19, size.axis = 1.2, size.xlabel = 1.5, size.ylabel = 1.5, title = "sPLS-DA ordination of samples (Ratio G)", size.title = 1.5)
+legend(x = "topleft", legend = levels(data_factors$Series_Differentiation), cex = 1, fill = color.mixo(1:4), bty = "n")
+```
+```{r}
+auc.plsda <- auroc(MyResult.splsda.fixed)
+```
+
+## Harman
+```{r include=FALSE}
+dev.off()
+```
+```{r}
+data_factors$Series_Differentiation <- factor(apply(data_factors[, c(5, 4)], 1, paste, collapse = "_"))
+
+X <- t(data_corrected_harman)
+Y <- data_factors$Series_Differentiation
+
+list.keepX <- c(5:10,  seq(20, 100, 10))
+set.seed(30) 
+tune.splsda.srbct <- tune.splsda(X, Y, ncomp = 3,
+                                 validation = 'Mfold',
+                                 folds = 3, dist = 'max.dist', progressBar = FALSE,
+                                 measure = "BER", test.keepX = list.keepX,
+                                 nrepeat = 10)   
+
+ncomp <- tune.splsda.srbct$choice.ncomp$ncomp 
+ncomp
+
+select.keepX <- tune.splsda.srbct$choice.keepX[1:ncomp] 
+select.keepX
+
+
+MyResult.splsda.fixed <- splsda(X, Y,ncomp = ncomp, keepX = select.keepX)
+
+layout(matrix(c(1, 2, 3, 3, 3, 3), 2, 3))
+plotLoadings(MyResult.splsda.fixed, comp = 1, size.name = 1, size.title = 1.2, title = "Loadings\n on 1st component", contrib = "max", legend = FALSE, col.ties="black", ndisplay = 10)
+plotLoadings(MyResult.splsda.fixed, comp = 2, size.name = 1, size.title = 1.2, title = "Loadings\n on 2nd component", contrib = "max",ndisplay = 10,  legend = FALSE, col.ties="black")
+plotIndiv(MyResult.splsda.fixed, ind.names = F, ellipse = T, style = "graphics", abline = TRUE, cex = 2, pch = 19, size.axis = 1.2, size.xlabel = 1.5, size.ylabel = 1.5, title = "sPLS-DA ordination of samples (Harman)", size.title = 1.5)
+legend(x = "topleft", legend = levels(data_factors$Series_Differentiation), cex = 1, fill = color.mixo(1:4), bty = "n")
+```
+```{r}
+auc.plsda <- auroc(MyResult.splsda.fixed)
+```
+
+## Combat
+```{r include=FALSE}
+dev.off()
+```
+```{r}
+data_factors$Series_Differentiation <- factor(apply(data_factors[, c(5, 4)], 1, paste, collapse = "_"))
+
+X <- t(combat_edata)
+Y <- data_factors$Series_Differentiation
+summary(Y)
+
+
+list.keepX <- c(5:10,  seq(20, 100, 10))
+set.seed(30) 
+tune.splsda.srbct <- tune.splsda(X, Y, ncomp = 3,
+                                 validation = 'Mfold',
+                                 folds = 3, dist = 'max.dist', 
+                                 progressBar = FALSE,
+                                 measure = "BER",
+                                 test.keepX = list.keepX,
+                                 nrepeat = 10)   
+
+ncomp <- tune.splsda.srbct$choice.ncomp$ncomp 
+ncomp
+
+select.keepX <- tune.splsda.srbct$choice.keepX[1:ncomp] 
+select.keepX
+```
+```{r}
+MyResult.splsda.fixed <- splsda(X, Y,ncomp = ncomp, keepX = select.keepX)
+
+layout(matrix(c(1, 2, 3, 3, 3, 3), 2, 3))
+plotLoadings(MyResult.splsda.fixed, comp = 1, size.name = 1, size.title = 1.2, title = "Loadings\n on 1st component", contrib = "max", legend = FALSE, col.ties="black", ndisplay = 10)
+plotLoadings(MyResult.splsda.fixed, comp = 2, size.name = 1, size.title = 1.2, title = "Loadings\n on 2nd component", contrib = "max",ndisplay = 10,  legend = FALSE, col.ties="black")
+plotIndiv(MyResult.splsda.fixed, ind.names = F, ellipse = T, style = "graphics", abline = TRUE, cex = 2, pch = 19, size.axis = 1.2, size.xlabel = 1.5, size.ylabel = 1.5, title = "sPLS-DA ordination of samples (ComBat)", size.title = 1.5)
+legend(x = "topleft", legend = levels(data_factors$Series_Differentiation), cex = 1, fill = color.mixo(1:4), bty = "n")
+```
+```{r}
+auc.plsda <- auroc(MyResult.splsda.fixed)
+```
+
+Only application of ComBat resulted in similar prediction probability for classes of first and second years.
+Usage of other methods led to higher prediction probability for Classes of first year than for second year.
+
+# gPCA
+gPCA (guided PCA) is used to test whether a batch effect exists. "Delta" is a metric that varies between 0 and 1. 1 means that there are batch effect, 0 - no batch. p-value indicates the significance of delta value.
+
+```{r include=FALSE}
+# Function for gPCA analysiss may be found in "Functions" directory
+source("gPCA.batchdetect.R")
+```
+
+```{r}
+real <- gPCA.batchdetect(t(data_norm_quantile_max), data_factors$Series)
+sva <- gPCA.batchdetect(t(combat_edata), data_factors$Series, nperm = 10000)
+limma <- gPCA.batchdetect(t(data_limma_corrected), data_factors$Series)
+ratio_A <- gPCA.batchdetect(ratio_A_corrected, data_factors$Series)
+ratio_G <- gPCA.batchdetect(ratio_G_corrected, data_factors$Series)
+harman <- gPCA.batchdetect(t(data_corrected_harman), data_factors$Series)
+
+gPCA_table <- data.frame("Correction method" = c("No correction",
+                                                 "ComBat",
+                                                 "BMC", 
+                                                 "Ratio A", 
+                                                 "Ratio G", 
+                                                 "Harman"),
+                         "gPCA delta" = c(real$delta,
+                                          sva$delta,
+                                          limma$delta,
+                                          ratio_A$delta,
+                                          ratio_G$delta,
+                                          harman$delta), 
+                         "P-value" = c(real$p.val,
+                                       sva$p.val,
+                                       limma$p.val,
+                                       ratio_A$p.val,
+                                       ratio_G$p.val,
+                                       harman$p.val))
+gPCA_table
+```
+
+
+# Conclusion
+Thus, **ComBat** method was used in further differential expression and GO enrichment analyses.
+

@@ -1,0 +1,195 @@
+---
+title: "Differential expression and GO enrichment analyzes"
+author: "Katerina Danko"
+output:
+    html_document:
+      code_folding: show
+      theme: united
+      toc: true
+      toc_depth: 3
+      toc_float: true
+      number_section: true
+---
+
+```{css, echo=FALSE}
+.header-section-number::after {
+  content: ".";
+}
+```
+
+List of used packages:
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+
+```
+
+```{r include=FALSE}
+# "data.Rdata" and "combat.Rdata" may be found in "Rdata" directory 
+load("combat.Rdata")
+load("data.Rdata")
+```
+
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+# Missing packages must be installed for proper compilation 
+if (!require(limma)) BiocManager::install("limma")
+if (!require(dplyr)) install.packages("dplyr")
+if (!require(ggplot2)) install.packages("ggplot2")
+if (!require(sva)) BiocManager::install("sva")
+if (!require(heatmaply)) BiocManager::install("heatmaply")
+if (!require(EnhancedVolcano)) BiocManager::install(EnhancedVolcano)
+if (!require(clusterProfiler)) BiocManager::install(clusterProfiler)
+if (!require(enrichplot)) BiocManager::install(enrichplot)
+if (!require(DOSE)) BiocManager::install(DOSE)
+if (!require(gprofiler2)) BiocManager::install(gprofiler2)
+```
+
+```{r echo = T, warning=FALSE, message=FALSE, eval=TRUE}
+library(limma)
+library(ggplot2)
+library(sva)
+library(heatmaply)
+library(EnhancedVolcano)
+library(dplyr)
+library(clusterProfiler)
+library(enrichplot)
+library(DOSE)
+library(gprofiler2)
+```
+
+We have chosen ComBat method of batch correction provided by `sva` package.
+Two proteins whose expression differed depending on the year of experiment were dropped.
+```{r warning=FALSE, message=FALSE}
+dropped_genes <- rownames(dif_data_sva)
+new_data_combat <- combat_edata[!(rownames(combat_edata) %in% dropped_genes), ]
+```
+
+# Diffential expression depending on stage of differentiation
+This study aimed to deаine molecular mechanisms of cells osteogenic differentiation. So that we performed differential expression analysis of cells in undifferentiated and in osteogenic differentiation stages.
+
+```{r warning=FALSE, message=FALSE}
+
+# Dif expression
+X_diff <- model.matrix(~ Differentiation, data = data_factors)
+
+# Build a linear model for each protein
+fit_y <- lmFit(new_data_combat, design = X_diff, method = "robust", maxit = 1000)
+
+# Empirical Bayes statistics
+efit_y <- eBayes(fit_y)
+
+topTable(efit_y, coef = 2)
+
+num_spots <- nrow(data_norm_quantile_max)
+full_list_diff <- topTable(efit_y, coef = 2, number = num_spots,
+                        sort.by = "none")
+```
+
+Draw heatmap:
+```{r warning=FALSE, message=FALSE}
+p_above_y <- full_list_diff$adj.P.Val < 0.05
+dif_data_diff <- data_norm_quantile_max[p_above_y, ]
+sum(p_above_y)
+
+heatmaply(dif_data_diff, main = "Differentiation vs Control", fontsize_row = 1, dendrogram = "col", scale_fill_gradient_fun = ggplot2::scale_fill_gradient2(low = "lightseagreen", high = "orangered3", midpoint = 15))
+```
+
+Draw Volcano plot:
+```{r warning=FALSE, message=FALSE}
+EnhancedVolcano(full_list_diff,
+                lab = rownames(full_list_diff),
+                x = 'logFC',
+                y = 'adj.P.Val',
+                title = "Differentially expressed genes\n condition = 'Differentiation'",
+                subtitle = NULL,
+                pCutoff = 0.05,
+                FCcutoff = 0.1,
+                legend = c("Not significant","Log2FC","Padj","Padj & Log2FC"),
+                legendPosition = "right",
+                col=c("lightcyan4","#f57002", "#ee9f02", "#0a9278"))
+```
+
+# GO enrichment analysis
+In order to group significantly differentially expressed proteins we have used GO enrichment analysis.
+
+```{r warning=FALSE, message=FALSE}
+# keep only the significant proteins results
+sig <- subset(full_list_diff, adj.P.Val < 0.05)
+
+# get the significant up-regulated proteins
+up <- subset(full_list_diff, logFC > 0)
+
+# get the significant down-regulated proteins
+down <- subset(full_list_diff, logFC < 0)
+```
+
+```{r warning=FALSE, message=FALSE}
+# needed to convert to enrichResult object
+up_names <- gconvert(row.names(up))
+down_names <- gconvert(row.names(down))
+```
+
+## Up-regulated proteins
+```{r warning=FALSE, message=FALSE}
+# enrichment analysis using proteins names
+multi_gp_up_reg <- gost(list("up-regulated" = up_names$name), multi_query = FALSE, evcodes =TRUE)
+
+# modify the g:Profiler data frame
+gp_mod_up = multi_gp_up_reg$result[, c("query", "source", "term_id","term_name", "p_value", "query_size", "intersection_size", "term_size", "effective_domain_size", "intersection")]
+
+gp_mod_up <- gp_mod_up[order(gp_mod_up$p_value), ]
+gp_mod_up_BP <- gp_mod_up[gp_mod_up$source == "GO:BP", ]
+
+gp_mod_up_BP$GeneRatio <- paste0(gp_mod_up_BP$intersection_size,  "/", gp_mod_up_BP$query_size)
+gp_mod_up_BP$BgRatio <- paste0(gp_mod_up_BP$term_size, "/", gp_mod_up_BP$effective_domain_size)
+
+names(gp_mod_up_BP) <- c("Cluster", "Category", "ID", "Description", "p.adjust", "query_size", "Count", "term_size", "effective_domain_size", "geneID", "GeneRatio", "BgRatio")
+
+gp_mod_up_BP$geneID <- gsub(",", "/", gp_mod_up_BP$geneID)
+row.names(gp_mod_up_BP) <- gp_mod_up_BP$ID
+
+gp_mod_enrich_up_BP <- new("enrichResult", result = gp_mod_up_BP)
+```
+
+Draw enrichment plot:
+```{r warning=FALSE, message=FALSE}
+enrichplot::dotplot(gp_mod_enrich_up_BP, showCategory = 10) + ggplot2::labs(title = "up-regulated") + ggplot2::scale_color_gradient(low = "lightseagreen", high = "darkorange1")
+```
+
+## Down-regulated proteins
+```{r warning=FALSE, message=FALSE}
+# enrichment analysis using gene names
+multi_gp_down_reg <- gost(list("down-regulated" = down_names$name), multi_query = FALSE, evcodes =TRUE)
+
+
+# modify the g:Profiler data frame
+gp_mod_down = multi_gp_down_reg$result[, c("query", "source", "term_id","term_name", "p_value", "query_size", "intersection_size", "term_size", "effective_domain_size", "intersection")]
+
+gp_mod_down <- gp_mod_down[order(gp_mod_down$p_value), ]
+
+# BP
+gp_mod_down_BP <- gp_mod_down[gp_mod_down$source == "GO:BP", ]
+
+gp_mod_down_BP$GeneRatio <- paste0(gp_mod_down_BP$intersection_size,  "/", gp_mod_down_BP$query_size)
+gp_mod_down_BP$BgRatio <-  paste0(gp_mod_down_BP$term_size, "/", gp_mod_down_BP$effective_domain_size)
+
+names(gp_mod_down_BP) <- c("Cluster", "Category", "ID", "Description", "p.adjust", "query_size", "Count", "term_size", "effective_domain_size", "geneID", "GeneRatio", "BgRatio")
+
+gp_mod_down_BP$geneID <- gsub(",", "/", gp_mod_down_BP$geneID)
+
+gp_mod_enrich_down_BP <- new("enrichResult", result = gp_mod_down_BP)
+```
+
+Draw enrichment plot:
+```{r warning=FALSE, message=FALSE}
+enrichplot::dotplot(gp_mod_enrich_down_BP, showCategory = 10) + ggplot2::labs(title = "down-regulated") + ggplot2::scale_color_gradient(low = "lightseagreen", high = "darkorange1")
+```
+
+# Conclusions
+
+* There were considerably more proteins identified by Peaks Xpro than by MaxQuant
+* Wrong experimental design that included two-step data analysis in two years led in severe technical batch effect
+* Differential expression analysis depending on year of experiment showed 707 “differentially expressed” proteins 
+* 5 methods of batch correction were applied: ComBat, BMC, Ratio A, Ratio G, Harman
+* Comparison of batch correction methods established that the optimal method is ComBat
+* GO enrichment analysis conducted on corrected data revealed that proteins connected with immune response activation were up-regulated in differentiated cells, while proteins participating in cell transporting processes were down-regulated 

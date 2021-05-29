@@ -1,0 +1,253 @@
+---
+title: "Data Preparation, Investigation, Differentail expression"
+author: "Katerina Danko"
+output:
+    html_document:
+      code_folding: show
+      theme: united
+      toc: true
+      toc_depth: 3
+      toc_float: true
+      number_section: true
+---
+
+```{css, echo=FALSE}
+.header-section-number::after {
+  content: ".";
+}
+```
+
+List of used packages:
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+
+```
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+# Missing packages must be installed for proper compilation 
+if (!require(limma)) BiocManager::install("limma")
+if (!require(devtools)) install.packages("devtools")
+if (!require(readxl)) install.packages("readxl")
+if (!require(readr)) install.packages("readr")
+if (!require(ggplot2)) install.packages("ggplot2")
+if (!require(impute)) BiocManager::install("impute")
+if (!require(ggbiplot)) install_github("vqv/ggbiplot")
+if (!require(reactable)) install.packages("reactable")
+if (!require(heatmaply)) BiocManager::install("heatmaply")
+if (!require(EnhancedVolcano)) BiocManager::install("EnhancedVolcano")
+```
+
+
+```{r echo = T, warning=FALSE, message=FALSE, eval=TRUE}
+library(limma)
+library(readxl)
+library(readr)
+library(impute)
+library(ggbiplot)
+library(reactable)
+library(heatmaply)
+library(EnhancedVolcano)
+library(ggVennDiagram)
+```
+
+```{r echo = FALSE, warning=FALSE, message=FALSE, eval=TRUE}
+theme_set(theme_bw())
+```
+
+# Comparison of protemic software
+We had two softs for mass-spectrometry results analysis: Peaks Xpro and MaxQuant. 
+Firstly, we compared identified proteins using these two softs.
+```{r message=FALSE, warning=FALSE}
+# All data may be found in "Data" directory
+maxq <- read_xlsx("raw_proteomics_MaxQuant_filtered.xlsx")
+peaks <- read_csv("data_Peaks.csv")
+id_list <- list(peaks$Gene_id, maxq$gene_id)
+
+ggVennDiagram(id_list, category.names = c("Peaks", "MaxQuant"), label_alpha = 0) +
+  scale_fill_gradient(low = "palegreen3", high = "#0a9278") +
+  labs(title = "Protein identification") +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5))
+```
+We chose data, obtained by using Peaks software as it identified much more proteins 
+
+# Read files and optimize datasets
+```{r warning=FALSE, message=FALSE}
+# Read raw data obtained from "Peaks" software
+data <- read.csv("data_Peaks.csv", stringsAsFactors = F)
+
+# Make tidy data
+data$Accession_id <- unlist(lapply(data$Accession, function(x) unlist(strsplit(x, "\\|")[1])[1]))
+data$temp <- unlist(lapply(data$Accession, function(x) unlist(strsplit(x, "\\|")[1])[2]))
+data$Protein_name <- unlist(lapply(data$temp, function(x) unlist(strsplit(x, "_")[1])[1]))
+data <- data[, -111]
+
+
+# Read factor table
+data_factors <- read_xlsx("factor_Peaks.xlsx")
+data_factors$Health <- as.factor(data_factors$Health)
+data_factors$Differentiation <- as.factor(data_factors$Differentiation)
+data_factors$Series <- as.factor(data_factors$Series)
+
+
+colnames(data)[39:71] <- data_factors$sample
+
+reactable(data[, c(111, 39:71)])
+
+reactable(data_factors)
+```
+
+# Dealing with NA
+Proteomics data may possess NA values which should be treated carefully. Here we tried two approaches:      
+
+* Drop columns where the number of NA is more than 2 (MAX drop)
+* Drop columns where the number of NA is more than a half of observations (MIN drop)
+```{r warning=FALSE, message=FALSE}
+t_data <- t(data[, 39:71])
+
+colnames(t_data) <- data$Protein_name
+
+## Remove columns where the number of NA is greater than half of observations
+cond_1 <- colSums(is.na(t_data)) <=  nrow(t_data) / 2
+t_data_mindrop <- t_data[, cond_1]
+sum(colSums(is.na(t_data)) >=  nrow(t_data) / 2)
+
+## Remove columns where the number of NA is greater than 2
+cond_2 <- colSums(is.na(t_data)) <  2
+t_data_maxdrop <- t_data[, cond_2]
+sum(colSums(is.na(t_data)) >  2)
+
+## Imputation of NA 
+data_maxdrop <- t(impute.knn(t_data_maxdrop, k = 10)$data)
+sum(is.na(data_maxdrop))
+
+data_mindrop <- t(impute.knn(t_data_mindrop, k = 10)$data)
+sum(is.na(data_mindrop))
+```
+
+Application of MAX drop approach resulted in considerable reduction of proteins number (approximately two-thirds of all proteins), whereas usage MIN drop led to more slight decrease in protein number (around one third of all proteins).
+
+# Data Normalization
+Log2 transformation and quantile transformation were used as it had demonstrated the best normalization results.
+```{r}
+# MAX DROP (Drop NA if > 2)
+data_norm_log_max <- log2(data_maxdrop + 1)
+data_norm_quantile_max <- normalizeQuantiles(data_norm_log_max)
+boxplot(data_norm_quantile_max,col = "#0a9278",
+        border = "black",
+        main = "Log2 + Quantile normalization",
+        ylab = "intensities", 
+        xlab = "samples")
+
+# MIN DROP (Drop NA if >  half of observations)
+data_norm_log_min <- log2(data_mindrop + 1)
+data_norm_quantile_min <- normalizeQuantiles(data_norm_log_min)
+boxplot(data_norm_quantile_min, col = "#0a9278", 
+        border = "black",
+        main = "Log2 + Quantile normalization",
+        ylab = "intensities", 
+        xlab = "samples")
+```
+
+# PCA
+We used PCA to decide which data would be analyzed: MAX drop or MIN drop.
+
+## "MAX drop"
+```{r warning=FALSE, message=FALSE}
+# Year
+data_pca_maxdrop <- prcomp(t(data_norm_quantile_max), center = T, scale. = F)
+ggbiplot(data_pca_maxdrop, ellipse = TRUE, groups = data_factors$Series, labels = NULL, var.axes = FALSE, alpha = 0.7) +
+  scale_color_manual(values = c("#0a9278","#f57002")) +
+  labs(title = "Batch effect in data MAX drop", color = "Year") + 
+  theme(plot.title = element_text(face = "bold", hjust = 0.5))
+```
+
+```{r warning=FALSE, message=FALSE}
+# Health
+ggbiplot(data_pca_maxdrop, ellipse = TRUE, groups = data_factors$Health, labels = NULL, var.axes = FALSE, alpha = 0.7) +
+  scale_color_manual(values = c("#0a9278","#f57002")) +
+  labs(title = "Data classes (Control vs Health)", color = "Group") +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5))
+```
+
+```{r warning=FALSE, message=FALSE}
+# Differentiation
+ggbiplot(data_pca_maxdrop, ellipse = TRUE, groups = data_factors$Differentiation, labels = NULL, var.axes = FALSE, alpha = 0.7) +
+  geom_point(aes(col = data_factors$Differentiation)) +
+  scale_color_manual(values = c("#0a9278","#f57002")) +
+  labs(title = "Data classes (Control vs Differentiation)", color = "Group") +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5))
+```
+
+## "MIN drop"
+```{r warning=FALSE, message=FALSE}
+# Year
+data_pca_mindrop <- prcomp(t(data_norm_quantile_min), center = T, scale. = F)
+ggbiplot(data_pca_mindrop, ellipse = TRUE, groups = data_factors$Series, labels = NULL, var.axes = FALSE, alpha = 0.7) +
+  scale_color_manual(values = c("#0a9278","#f57002")) +
+  labs(title = "Batch effect in data (MIN drop)", color = "Year") + 
+  theme(plot.title = element_text(face = "bold", hjust = 0.5))
+```
+
+```{r warning=FALSE, message=FALSE}
+# Health
+ggbiplot(data_pca_mindrop, ellipse = TRUE, groups = data_factors$Health, labels = NULL, var.axes = FALSE, alpha = 0.7) +
+  scale_color_manual(values = c("#0a9278","#f57002")) +
+  labs(title = "Data classes (Control vs Health)", color = "Group") +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5))
+```
+
+```{r warning=FALSE, message=FALSE}
+# Differentiation
+ggbiplot(data_pca_mindrop, ellipse = TRUE, groups = data_factors$Differentiation, labels = NULL, var.axes = FALSE, alpha = 0.7) +
+  geom_point(aes(col = data_factors$Differentiation)) +
+  scale_color_manual(values = c("#0a9278","#f57002")) +
+  labs(title = "Data classes (Control vs Differentiation)", color = "Group") +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5))
+```
+
+We chose "MAX drop" data for further analysis, because Control and Differentiation classes were more separated from each other than in case of "MIN drop" data.
+
+# Differential expression
+We have performed differential expression analysis depending on year of experiment in order to somehow estimate the scale of batch effect. 
+```{r warning=FALSE, message=FALSE}
+X <- model.matrix(~ Series, data = data_factors)
+
+# Build a linear model for each protein
+fit <- lmFit(data_norm_quantile_max, design = X, method = "robust", maxit = 1000)
+
+# Empirical Bayes statistics
+efit <- eBayes(fit)
+
+topTable(efit, coef = 2)
+
+num_spots <- nrow(data_norm_quantile_max)
+full_list <- topTable(efit, coef = 2, number = num_spots,
+                      sort.by = "none")
+
+
+p_above <- full_list$adj.P.Val <= 0.05
+dif_data_year_wo_correction <- data_norm_quantile_max[p_above, ]
+sum(p_above)
+```
+
+As you may see, there are 707 "differentially expressed" proteins depending on year of experiment.
+
+Draw heatmap:
+```{r}
+heatmaply(dif_data_year_wo_correction, main = "1 Year vs 2 Year", fontsize_row = 1, dendrogram = "col",  scale_fill_gradient_fun = ggplot2::scale_fill_gradient2(low = "lightseagreen", high = "orangered3", midpoint = 15))
+```
+
+Draw Volcano plot:
+```{r warning=FALSE, message=FALSE}
+EnhancedVolcano(full_list,
+                lab = rownames(full_list),
+                title = "Batch effect connecting with year\nof experiment",
+                subtitle = NULL,
+                x = "logFC",
+                y = "adj.P.Val",
+                pCutoff = 0.05,
+                FCcutoff = 0.1,
+                legend = c("Not significant","Log2FC","Padj","Padj & Log2FC"),
+                legendPosition = "right",
+                col = c("lightcyan4","#f57002", "#ee9f02", "#0a9278"))
+```
