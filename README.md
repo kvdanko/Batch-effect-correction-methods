@@ -22,22 +22,23 @@ We have compared proteins identified by Peaks Xpro and MaxQuant softwares. It wa
 
 Here we have used 5 batch corection methods (Table 1)
 
-Table 1.
+**Table 1.** Batch correction methods.
 
 ![](/Figures/Batch_correction_methods.png)
 
 Depending on PCA, gPCA and PLS-DA analysis we have concluded that the best batch correction method is ComBat (Fig. 2, 3, Table 2).
 
 ![Figure 2. PCA results.](/Figures/PCA.png)
-Figure 2. PCA results.
 
-Table 2. gPCA results.
+**Figure 2.** PCA results.
+
+**Table 2.** gPCA results.
 
 ![](/Figures/gPCA.png)
 
 ![Figure 3. PLS-DA results.](/Figures/PLS-DA_ComBat.png)
 
-Figure 3. PLS-DA results.
+**Figure 3.** PLS-DA results.
 
 
 
