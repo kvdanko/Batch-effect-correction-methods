@@ -8,7 +8,11 @@
 **Introduction**:
 In this study we have analyzed Data were obtained from cells' proteomic analysis in undifferentiated and in osteogenic differentiation stages isolated from healthy donors and patients with aortic stenosis. This data contained severe technical batch effects caused by two-step biennial experimental design in this work.
 
-**Aim**:  to define the best batch-effect correction tool in order to analyse the differences in the molecular mechanisms of osteogenic differentiation 
+**Aim**: to define the best batch-effect correction tool in order to analyse the differences in the molecular mechanisms of osteogenic differentiation 
 
-**Methods**:
+**Methods**: here we have used 5 batch corection methods (Table 1)
+
+Table 1.
+()
+
 
