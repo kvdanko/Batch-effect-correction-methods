@@ -22,7 +22,7 @@ We have compared proteins identified by Peaks Xpro and MaxQuant softwares. It wa
 
 Here we have used 5 batch corection methods (Table 1)
 
-**Table 1.** Batch correction methods.
+*Table 1.* Batch correction methods.
 
 ![](/Figures/Batch_correction_methods.png)
 
@@ -30,15 +30,30 @@ Depending on PCA, gPCA and PLS-DA analysis we have concluded that the best batch
 
 ![Figure 2. PCA results.](/Figures/PCA.png)
 
-**Figure 2.** PCA results.
+*Figure 2.* PCA results.
 
-**Table 2.** gPCA results.
+*Table 2.* gPCA results.
 
 ![](/Figures/gPCA.png)
 
 ![Figure 3. PLS-DA results.](/Figures/PLS-DA_ComBat.png)
 
-**Figure 3.** PLS-DA results.
+*Figure 3.* PLS-DA results.
+
+GO enrichment analysis revealed that proteins involved in connecting with immune responses activation were up-regulated, whereas зroteins involved in cell transport processes were down-regulated (Fig. 4). 
+
+![Figure 4. GO enrichment analysis results.](/Figures/GO_enrichment_analysis.png)
+
+*Figure 4.* GO enrichment analysis results.
+
+**Conclusions**
+
+* There were considerably more proteins identified by Peaks Xpro than by MaxQuant
+* Wrong experimental design that included two-step data analysis in two years led in severe technical batch effect
+* Differential expression analysis depending on year of experiment showed 707 “differentially expressed” proteins 
+* 5 methods of batch correction were applied: ComBat, BMC, Ratio A, Ratio G, Harman
+* Comparison of batch correction methods established that the optimal method is ComBat
+* GO enrichment analysis conducted on corrected data revealed that proteins connected with immune response activation were up-regulated in differentiated cells, while proteins participating in cell transporting processes were down-regulated 
 
 
 
