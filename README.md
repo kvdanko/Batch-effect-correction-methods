@@ -29,7 +29,6 @@ Table 1.
 Depending on PCA, gPCA and PLS-DA analysis we have concluded that the best batch correction method is ComBat (Fig. 2, 3, Table 2).
 
 ![Figure 2. PCA results.](/Figures/PCA.png)
-
 Figure 2. PCA results.
 
 Table 2. gPCA results.
