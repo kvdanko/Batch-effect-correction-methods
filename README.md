@@ -13,6 +13,6 @@ In this study we have analyzed Data were obtained from cells' proteomic analysis
 **Methods**: here we have used 5 batch corection methods (Table 1)
 
 Table 1.
-()
+![](/Figures/Batch_correction_methods.png)
 
 
