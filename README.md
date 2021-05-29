@@ -30,11 +30,15 @@ Depending on PCA, gPCA and PLS-DA analysis we have concluded that the best batch
 
 ![Figure 2. PCA results.](/Figures/PCA.png)
 
+Figure 2. PCA results.
+
 Table 2. gPCA results.
 
 ![](/Figures/gPCA.png)
 
 ![Figure 3. PLS-DA results.](/Figures/PLS-DA_ComBat.png)
+
+Figure 3. PLS-DA results.
 
 
 
