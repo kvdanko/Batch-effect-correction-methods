@@ -29,7 +29,7 @@ Differential expression and GO (gene ontology) analyzes were applied to correcte
 
 **Results**
 
-We have compared proteins identified by Peaks Xpro and MaxQuant softwares. It was shown that there were much more unique proteins identified by Peaks (Fig. 1).
+We have compared proteins identified by Peaks Xpro and MaxQuant (version 1.6.7.0) softwares. It was shown that there were much more unique proteins identified by Peaks (Fig. 1).
 
 ![Figure 1. Venn Diagram illustrating number of identified proteins.](/Figures/Protein_identification.png)
 
