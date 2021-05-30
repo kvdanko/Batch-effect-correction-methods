@@ -40,7 +40,7 @@ Depending on PCA, gPCA and PLS-DA analysis we have concluded that the best batch
 
 *Figure 3.* PLS-DA results.
 
-GO enrichment analysis revealed that proteins involved in connecting with immune responses activation were up-regulated, whereas зroteins involved in cell transport processes were down-regulated (Fig. 4). 
+GO enrichment analysis revealed that proteins involved in connecting with immune responses activation were up-regulated, whereas proteins involved in cell transport processes were down-regulated (Fig. 4). 
 
 ![Figure 4. GO enrichment analysis results.](/Figures/GO_enrichment_analysis.png)
 
@@ -49,8 +49,7 @@ GO enrichment analysis revealed that proteins involved in connecting with immune
 **Conclusions**
 
 * There were considerably more proteins identified by Peaks Xpro than by MaxQuant
-* Wrong experimental design that included two-step data analysis in two years led in severe technical batch effect
-* Differential expression analysis depending on year of experiment showed 707 “differentially expressed” proteins 
+* Wrong experimental design that included two-step data analysis in two years led in severe technical batch effect 
 * 5 methods of batch correction were applied: ComBat, BMC, Ratio A, Ratio G, Harman
 * Comparison of batch correction methods established that the optimal method is ComBat
 * GO enrichment analysis conducted on corrected data revealed that proteins connected with immune response activation were up-regulated in differentiated cells, while proteins participating in cell transporting processes were down-regulated 
