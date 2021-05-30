@@ -24,8 +24,13 @@ We have compared proteins identified by Peaks Xpro and MaxQuant softwares. It wa
 Here we have used 5 batch corection methods (Table 1).
 
 *Table 1.* Batch correction methods.
-
-![](/Figures/Batch_correction_methods.png)
+|           Method           |                               Description                               |        R package        |
+|:--------------------------:|:-----------------------------------------------------------------------:|:-----------------------:|
+| ComBat                     | Empirical Bayes method                                                  | sva (version 3.32.1)    |
+| Harman                     | Based on PCA. Reduces batch effect and keeps user-defined class effects | Harman (version 1.12.0) |
+| Ratio A                    | Ratio-based method scaling the expression values by the arithmetic mean | bapred (version 1.0)    |
+| Ratio G                    | Ratio-based method  scaling the expression values by the geometric mean | bapred (version 1.0)    |
+| BMC (batch mean centering) | Centering the variables within batches to have zero mean                | limma (version 3.40.6)  |
 
 Depending on PCA, gPCA and PLS-DA analysis we have concluded that the best batch correction method is ComBat (Fig. 2, 3, Table 2).
 
