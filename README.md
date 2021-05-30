@@ -20,7 +20,7 @@ We have compared proteins identified by Peaks Xpro and MaxQuant softwares. It wa
 ![Figure 1. Venn Diagram illustrating number of identified proteins.](/Figures/Protein_identification.png)
 
 
-Here we have used 5 batch corection methods (Table 1)
+Here we have used 5 batch corection methods (Table 1).
 
 *Table 1.* Batch correction methods.
 
