@@ -10,6 +10,17 @@ In this study we have analyzed Data were obtained from cells' proteomic analysis
 
 **Aim**: to define the best batch-effect correction tool in order to analyse the differences in the molecular mechanisms of osteogenic differentiation 
 
+**Objectives**:
+
+1. Analyze raw mass-spectrometry data (Peaks, MaxQuant)
+2. Compare identified proteins
+3. Perform differential expression analysis
+4. Correct batch effect using different tools
+5. Compare the results of batch effect correction (PLS-DA, gPCA)
+6. Examine the differential expression using corrected values
+7. Carry out GO enrichment analysis
+
+
 **Methods**
 
 The project was carried out using R language (version 3.6.3) in the RStudio IDE [](http://www.rstudio.com/). We used 5 packages to eliminate batch effect: sva (Leek et al., 2021), bapred (Hornung et al., 2016), limma (Ritchie et al., 2015), Harman (Oytam et al., 2016).
