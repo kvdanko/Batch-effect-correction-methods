@@ -45,7 +45,7 @@ GO enrichment analysis revealed that proteins involved in connecting with immune
 
 ![Figure 4. GO enrichment analysis results.](/Figures/GO_enrichment_analysis.png)
 
-*Figure 4.* GO enrichment analysis results.
+*Figure 4.* GO enrichment analysis results (GO_enrichment.Rmd).
 
 **Conclusions**
 
