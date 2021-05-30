@@ -23,7 +23,7 @@ In this study we have analyzed Data were obtained from cells' proteomic analysis
 
 **Methods**
 
-The project was carried out using R language (version 3.6.3) in the RStudio IDE [](http://www.rstudio.com/). We used 5 packages to eliminate batch effect: sva (Leek et al., 2021), bapred (Hornung et al., 2016), limma (Ritchie et al., 2015), Harman (Oytam et al., 2016).
+The project was carried out using R language (version 3.6.3) in the RStudio IDE (http://www.rstudio.com/). We used 5 packages to eliminate batch effect: sva (Leek et al., 2021), bapred (Hornung et al., 2016), limma (Ritchie et al., 2015), Harman (Oytam et al., 2016).
 In order to choose optimal best correction method we used PCA (Principal component analysis), gPCA (guided PCA) and PLS-DA (Partial least squares-discriminant analysis).
 Differential expression and GO (gene ontology) analyzes were applied to corrected data to reveal some molecular mechanisms of osteogenic differentiation.
 
