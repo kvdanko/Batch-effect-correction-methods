@@ -35,7 +35,14 @@ Depending on PCA, gPCA and PLS-DA analysis we have concluded that the best batch
 
 *Table 2.* gPCA results (Table was obtained with [Batch_correction.Rmd](https://github.com/kvdanko/Project-spring-2021-BI/blob/main/Data_analysis/Batch_correction.Rmd)).
 
-![](/Figures/gPCA.png)
+| Correction method | gPCA delta | p-value |
+|-------------------|------------|---------|
+| No correction     | 0.992      | <0.001  |
+| ComBat            | 0.074      | 1       |
+| BMC               | 0.004      | 1       |
+| Ratio A           | 0.009      | 1       |
+| Ratio G           | 0.383      | 0.801   |
+| Harman            | 0.316      | 0.905   |
 
 ![Figure 3. PLS-DA results.](/Figures/PLS-DA_ComBat.png)
 
