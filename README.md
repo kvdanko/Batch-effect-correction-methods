@@ -19,7 +19,7 @@ We have compared proteins identified by Peaks Xpro and MaxQuant softwares. It wa
 
 ![Figure 1. Venn Diagram illustrating number of identified proteins.](/Figures/Protein_identification.png)
 
-*Figure 1.* Venn Diagram illustrating number of identified proteins (Figure was obtained with Data_Preparation.Rmd).
+*Figure 1.* Venn Diagram illustrating number of identified proteins (Figure was obtained with [Data_Preparation.Rmd](https://github.com/kvdanko/Project-spring-2021-BI/blob/main/Data_analysis/Data_Preparation.Rmd)).
 
 Here we have used 5 batch corection methods (Table 1).
 
@@ -31,7 +31,7 @@ Depending on PCA, gPCA and PLS-DA analysis we have concluded that the best batch
 
 ![Figure 2. PCA results.](/Figures/PCA.png)
 
-*Figure 2.* PCA results (figure was obtained with Data_Preparation.Rmd and Batch_correction.Rmd).
+*Figure 2.* PCA results (figure was obtained with [Data_Preparation.Rmd](https://github.com/kvdanko/Project-spring-2021-BI/blob/main/Data_analysis/Data_Preparation.Rmd) and [Batch_correction.Rmd](https://github.com/kvdanko/Project-spring-2021-BI/blob/main/Data_analysis/Batch_correction.Rmd)).
 
 *Table 2.* gPCA results (Table was obtained with [Batch_correction.Rmd](https://github.com/kvdanko/Project-spring-2021-BI/blob/main/Data_analysis/Batch_correction.Rmd)).
 
@@ -39,13 +39,13 @@ Depending on PCA, gPCA and PLS-DA analysis we have concluded that the best batch
 
 ![Figure 3. PLS-DA results.](/Figures/PLS-DA_ComBat.png)
 
-*Figure 3.* PLS-DA results (figure was obtained with Batch_correction.Rmd).
+*Figure 3.* PLS-DA results (figure was obtained with [Batch_correction.Rmd](https://github.com/kvdanko/Project-spring-2021-BI/blob/main/Data_analysis/Batch_correction.Rmd)).
 
 GO enrichment analysis revealed that proteins involved in connecting with immune responses activation were up-regulated, whereas proteins involved in cell transport processes were down-regulated (Fig. 4). 
 
 ![Figure 4. GO enrichment analysis results.](/Figures/GO_enrichment_analysis.png)
 
-*Figure 4.* GO enrichment analysis results (figure was obtained with GO_enrichment.Rmd).
+*Figure 4.* GO enrichment analysis results (figure was obtained with [GO_enrichment.Rmd](https://github.com/kvdanko/Project-spring-2021-BI/blob/main/Data_analysis/GO_enrichment.Rmd)).
 
 **Conclusions**
 
