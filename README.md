@@ -33,7 +33,7 @@ Depending on PCA, gPCA and PLS-DA analysis we have concluded that the best batch
 
 *Figure 2.* PCA results (figure was obtained with Data_Preparation.Rmd and Batch_correction.Rmd).
 
-*Table 2.* gPCA results (Table was obtained with Batch_correction.Rmd).
+*Table 2.* gPCA results (Table was obtained with [Batch_correction.Rmd](https://github.com/kvdanko/Project-spring-2021-BI/blob/main/Data_analysis/Batch_correction.Rmd)).
 
 ![](/Figures/gPCA.png)
 
